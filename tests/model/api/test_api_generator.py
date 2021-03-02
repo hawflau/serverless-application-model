@@ -17,7 +17,7 @@ class TestApiGenerator(TestCase):
         "stage_name": "stage",
     }
 
-    def test_lambda_auth_permission_not_created(self):
+    def test_lambda_auth_role_provided_permission_not_created(self):
         authorizers = {
             "Authorizers": {"LambdaAuth": {"FunctionArn": "FUNCTION_ARN", "FunctionInvokeRole": "FUNCTION_INVOKE_ROLE"}}
         }
@@ -25,7 +25,13 @@ class TestApiGenerator(TestCase):
         permissions = generator._construct_authorizer_lambda_permission()
         self.assertEqual(permissions, [])
 
-    def test_lambda_auth_permission_created(self):
+    def test_lambda_auth_none_role_permission_created(self):
+        authorizers = {"Authorizers": {"LambdaAuth": {"FunctionArn": "FUNCTION_ARN", "FunctionInvokeRole": "NONE"}}}
+        generator = ApiGenerator(auth=authorizers, **self.kwargs)
+        permissions = generator._construct_authorizer_lambda_permission()
+        self.assertEqual(len(permissions), 1)
+
+    def test_lambda_auth_role_not_provided_permission_created(self):
         authorizers = {"Authorizers": {"LambdaAuth": {"FunctionArn": "FUNCTION_ARN"}}}
         generator = ApiGenerator(auth=authorizers, **self.kwargs)
         permissions = generator._construct_authorizer_lambda_permission()
