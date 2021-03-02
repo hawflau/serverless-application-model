@@ -29,24 +29,6 @@
         }
       }
     }, 
-    "MyApiMyLambdaRequestAuthAuthorizerPermission": {
-      "Type": "AWS::Lambda::Permission", 
-      "Properties": {
-        "Action": "lambda:InvokeFunction", 
-        "Principal": "apigateway.amazonaws.com", 
-        "FunctionName": "arn:aws", 
-        "SourceArn": {
-          "Fn::Sub": [
-            "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${__ApiId__}/authorizers/*", 
-            {
-              "__ApiId__": {
-                "Ref": "MyApi"
-              }
-            }
-          ]
-        }
-      }
-    },
     "MyApiProdStage": {
       "Type": "AWS::ApiGateway::Stage", 
       "Properties": {
@@ -460,24 +442,6 @@
         }
       }, 
       "Condition": "PathCondition"
-    }, 
-    "MyApiMyLambdaTokenAuthAuthorizerPermission": {
-      "Type": "AWS::Lambda::Permission", 
-      "Properties": {
-        "Action": "lambda:InvokeFunction", 
-        "Principal": "apigateway.amazonaws.com", 
-        "FunctionName": "arn:aws", 
-        "SourceArn": {
-          "Fn::Sub": [
-            "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${__ApiId__}/authorizers/*", 
-            {
-              "__ApiId__": {
-                "Ref": "MyApi"
-              }
-            }
-          ]
-        }
-      }
     }, 
     "MyFunctionWithConditional": {
       "Type": "AWS::Lambda::Function", 

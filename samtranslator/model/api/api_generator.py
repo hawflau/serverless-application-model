@@ -925,8 +925,9 @@ class ApiGenerator(object):
             if not authorizer.function_arn:
                 continue
 
-            permission = self._get_permission(authorizer_name, authorizer.function_arn)
-            permissions.append(permission)
+            if not authorizer.function_invoke_role or authorizer.function_invoke_role == "NONE":
+                permission = self._get_permission(authorizer_name, authorizer.function_arn)
+                permissions.append(permission)
 
         return permissions
 
