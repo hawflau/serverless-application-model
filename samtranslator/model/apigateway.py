@@ -1,4 +1,5 @@
 import json
+import copy
 from re import match
 from samtranslator.model import PropertyType, Resource
 from samtranslator.model.exceptions import InvalidResourceException
@@ -6,7 +7,11 @@ from samtranslator.model.types import is_type, one_of, is_str, list_of
 from samtranslator.model.intrinsics import ref, fnSub
 from samtranslator.translator import logical_id_generator
 from samtranslator.translator.arn_generator import ArnGenerator
+from samtranslator.utils.py27dict import to_py27dict, Py27Str
 
+import logging
+
+LOG = logging.getLogger(__name__)
 
 class ApiGatewayRestApi(Resource):
     resource_type = "AWS::ApiGateway::RestApi"
@@ -90,6 +95,18 @@ class ApiGatewayDeployment(Resource):
         # to prevent redeployment when API has not changed
 
         # NOTE: `str(swagger)` is for backwards compatibility. Changing it to a JSON or something will break compat
+        py27_swagger = to_py27dict(swagger)
+        LOG.debug("py2(s)  : %s", copy.deepcopy(swagger))
+        LOG.debug("py2     : %s", str(swagger))
+        LOG.debug("py27hash: %s", str(py27_swagger))
+        copied = copy.deepcopy(py27_swagger)
+        copied = copy.deepcopy(copied)
+        LOG.debug("py27copy: %s", str(copied))
+        LOG.debug("py27hash == native: %s", str(swagger) == str(py27_swagger))
+        LOG.debug("json: %s", json.dumps(swagger))
+        LOG.debug("keys: %s", list(swagger.keys()))
+
+        swagger = to_py27dict(swagger)
         hash_input = [str(swagger)]
         if openapi_version:
             hash_input.append(str(openapi_version))
@@ -97,6 +114,7 @@ class ApiGatewayDeployment(Resource):
             hash_input.append(json.dumps(domain))
         if redeploy_restapi_parameters:
             function_names = redeploy_restapi_parameters.get("function_names")
+            LOG.debug("function names: %s", function_names)
         else:
             function_names = None
         # The deployment logical id is <api logicalId> + "Deployment"
@@ -278,22 +296,22 @@ class ApiGatewayAuthorizer(object):
 
     def generate_swagger(self):
         authorizer_type = self._get_type()
-        APIGATEWAY_AUTHORIZER_KEY = "x-amazon-apigateway-authorizer"
+        APIGATEWAY_AUTHORIZER_KEY = Py27Str("x-amazon-apigateway-authorizer")
         swagger = {
-            "type": "apiKey",
-            "name": self._get_swagger_header_name(),
-            "in": "header",
-            "x-amazon-apigateway-authtype": self._get_swagger_authtype(),
+            Py27Str("type"): Py27Str("apiKey"),
+            Py27Str("name"): self._get_swagger_header_name(),
+            Py27Str("in"): Py27Str("header"),
+            Py27Str("x-amazon-apigateway-authtype"): self._get_swagger_authtype(),
         }
 
         if authorizer_type == "COGNITO_USER_POOLS":
             swagger[APIGATEWAY_AUTHORIZER_KEY] = {
-                "type": self._get_swagger_authorizer_type(),
-                "providerARNs": self._get_user_pool_arn_array(),
+                Py27Str("type"): self._get_swagger_authorizer_type(),
+                Py27Str("providerARNs"): self._get_user_pool_arn_array(),
             }
 
         elif authorizer_type == "LAMBDA":
-            swagger[APIGATEWAY_AUTHORIZER_KEY] = {"type": self._get_swagger_authorizer_type()}
+            swagger[APIGATEWAY_AUTHORIZER_KEY] = {Py27Str("type"): self._get_swagger_authorizer_type()}
             partition = ArnGenerator.get_partition_name()
             resource = "lambda:path/2015-03-31/functions/${__FunctionArn__}/invocations"
             authorizer_uri = fnSub(
@@ -337,20 +355,20 @@ class ApiGatewayAuthorizer(object):
         identity_source_context = []
 
         if self.identity.get("Headers"):
-            identity_source_headers = list(map(lambda h: "method.request.header." + h, self.identity.get("Headers")))
+            identity_source_headers = list(map(lambda h: Py27Str("method.request.header.") + h, self.identity.get("Headers")))
 
         if self.identity.get("QueryStrings"):
             identity_source_query_strings = list(
-                map(lambda qs: "method.request.querystring." + qs, self.identity.get("QueryStrings"))
+                map(lambda qs: Py27Str("method.request.querystring.") + qs, self.identity.get("QueryStrings"))
             )
 
         if self.identity.get("StageVariables"):
             identity_source_stage_variables = list(
-                map(lambda sv: "stageVariables." + sv, self.identity.get("StageVariables"))
+                map(lambda sv: Py27Str("stageVariables.") + sv, self.identity.get("StageVariables"))
             )
 
         if self.identity.get("Context"):
-            identity_source_context = list(map(lambda c: "context." + c, self.identity.get("Context")))
+            identity_source_context = list(map(lambda c: Py27Str("context.") + c, self.identity.get("Context")))
 
         identity_source_array = (
             identity_source_headers
@@ -358,7 +376,7 @@ class ApiGatewayAuthorizer(object):
             + identity_source_stage_variables
             + identity_source_context
         )
-        identity_source = ", ".join(identity_source_array)
+        identity_source = Py27Str(", ").join(identity_source_array)
 
         return identity_source
 
@@ -370,7 +388,7 @@ class ApiGatewayAuthorizer(object):
         payload_type = self._get_function_payload_type()
 
         if authorizer_type == "LAMBDA" and payload_type == "REQUEST":
-            return "Unused"
+            return Py27Str("Unused")
 
         return self._get_identity_header()
 
@@ -385,7 +403,7 @@ class ApiGatewayAuthorizer(object):
 
     def _get_identity_header(self):
         if not self.identity or not self.identity.get("Header"):
-            return "Authorization"
+            return Py27Str("Authorization")
 
         return self.identity.get("Header")
 
@@ -404,12 +422,12 @@ class ApiGatewayAuthorizer(object):
     def _get_swagger_authtype(self):
         authorizer_type = self._get_type()
         if authorizer_type == "AWS_IAM":
-            return "awsSigv4"
+            return Py27Str("awsSigv4")
 
         if authorizer_type == "COGNITO_USER_POOLS":
-            return "cognito_user_pools"
+            return Py27Str("cognito_user_pools")
 
-        return "custom"
+        return Py27Str("custom")
 
     def _get_function_payload_type(self):
         return "TOKEN" if not self.function_payload_type else self.function_payload_type
@@ -418,12 +436,12 @@ class ApiGatewayAuthorizer(object):
         authorizer_type = self._get_type()
 
         if authorizer_type == "COGNITO_USER_POOLS":
-            return "cognito_user_pools"
+            return Py27Str("cognito_user_pools")
 
         payload_type = self._get_function_payload_type()
 
         if payload_type == "REQUEST":
-            return "request"
+            return Py27Str("request")
 
         if payload_type == "TOKEN":
-            return "token"
+            return Py27Str("token")

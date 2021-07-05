@@ -27,6 +27,7 @@ from samtranslator.plugins.policies.policy_templates_plugin import PolicyTemplat
 from samtranslator.policy_template_processor.processor import PolicyTemplatesProcessor
 from samtranslator.sdk.parameter import SamParameterValues
 from samtranslator.translator.arn_generator import ArnGenerator
+from samtranslator.utils.py27dict import to_py27dict
 
 
 class Translator:
@@ -74,6 +75,8 @@ class Translator:
                                 resource_dict_copy.get("Properties").get("FunctionName")
                             )
                             if function_name:
+                                if isinstance(function_name, dict):
+                                    function_name = to_py27dict(function_name)
                                 self.function_names[api_name] = str(self.function_names.get(api_name, "")) + str(
                                     function_name
                                 )

@@ -6,6 +6,7 @@ from mock import MagicMock, patch
 from tests.translator.helpers import get_template_parameter_values
 from samtranslator.translator.transform import transform
 from samtranslator.model.apigateway import ApiGatewayDeployment
+from samtranslator.utils.py27dict import to_py27dict
 from tests.plugins.application.test_serverless_app_plugin import mock_get_region
 
 mock_policy_loader = MagicMock()
@@ -124,7 +125,7 @@ class TestApiGatewayDeploymentResource(TestCase):
         self.assertEqual(deployment.logical_id, id_val)
         self.assertEqual(deployment.Description, "RestApi deployment id: {}".format(full_hash))
 
-        LogicalIdGeneratorMock.assert_called_once_with(prefix, str(swagger))
+        LogicalIdGeneratorMock.assert_called_once_with(prefix, str(to_py27dict(swagger)))
         generator_mock.gen.assert_called_once_with()
         generator_mock.get_hash.assert_called_once_with(length=40)  # getting full SHA
         stage.update_deployment_ref.assert_called_once_with(id_val)
