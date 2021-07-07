@@ -1,46 +1,43 @@
-from samtranslator.utils.py27dict import Py27Str
-
-
 def fnGetAtt(logical_name, attribute_name):
-    return {Py27Str("Fn::GetAtt"): [logical_name, attribute_name]}
+    return {"Fn::GetAtt": [logical_name, attribute_name]}
 
 
 def ref(logical_name):
-    return {Py27Str("Ref"): logical_name}
+    return {"Ref": logical_name}
 
 
 def fnJoin(delimiter, values):
-    return {Py27Str("Fn::Join"): [delimiter, values]}
+    return {"Fn::Join": [delimiter, values]}
 
 
 def fnSub(string, variables=None):
     if variables:
-        return {Py27Str("Fn::Sub"): [string, variables]}
-    return {Py27Str("Fn::Sub"): string}
+        return {"Fn::Sub": [string, variables]}
+    return {"Fn::Sub": string}
 
 
 def fnOr(argument_list):
-    return {Py27Str("Fn::Or"): argument_list}
+    return {"Fn::Or": argument_list}
 
 
 def fnAnd(argument_list):
-    return {Py27Str("Fn::And"): argument_list}
+    return {"Fn::And": argument_list}
 
 
 def make_conditional(condition, true_data, false_data=None):
     if false_data is None:
-        false_data = {Py27Str("Ref"): Py27Str("AWS::NoValue")}
-    return {Py27Str("Fn::If"): [condition, true_data, false_data]}
+        false_data = {"Ref": "AWS::NoValue"}
+    return {"Fn::If": [condition, true_data, false_data]}
 
 
 def make_not_conditional(condition):
-    return {Py27Str("Fn::Not"): [{Py27Str("Condition"): condition}]}
+    return {"Fn::Not": [{"Condition": condition}]}
 
 
 def make_condition_or_list(conditions_list):
     condition_or_list = []
     for condition in conditions_list:
-        c = {Py27Str("Condition"): condition}
+        c = {"Condition": condition}
         condition_or_list.append(c)
     return condition_or_list
 

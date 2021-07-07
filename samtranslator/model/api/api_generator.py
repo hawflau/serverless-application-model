@@ -1,5 +1,4 @@
 import logging
-import json
 from collections import namedtuple
 
 from six import string_types
@@ -26,7 +25,6 @@ from samtranslator.model.lambda_ import LambdaPermission
 from samtranslator.translator import logical_id_generator
 from samtranslator.translator.arn_generator import ArnGenerator
 from samtranslator.model.tags.resource_tagging import get_tag_list
-from samtranslator.utils.py27dict import Py27Str
 
 LOG = logging.getLogger(__name__)
 
@@ -544,8 +542,6 @@ class ApiGenerator(object):
         domain, basepath_mapping, route53 = self._construct_api_domain(rest_api)
         deployment = self._construct_deployment(rest_api)
 
-        LOG.debug("rest_api.Body: %s", rest_api.Body)
-
         swagger = None
         if rest_api.Body is not None:
             swagger = rest_api.Body
@@ -932,8 +928,6 @@ class ApiGenerator(object):
         If the is swagger defined in the definition body, we treat it as a swagger spec and do not
         make any openapi 3 changes to it
         """
-        LOG.debug("_openapi_postprecess (%s)", self.logical_id)
-        LOG.debug("before %s", json.dumps(definition_body))
         if definition_body.get("swagger") is not None:
             return definition_body
 
@@ -944,16 +938,14 @@ class ApiGenerator(object):
             SwaggerEditor.get_openapi_version_3_regex(), self.open_api_version
         ):
             if definition_body.get("securityDefinitions"):
-                LOG.debug("securityDefinition -----------------")
                 components = definition_body.get("components", {})
-                components[Py27Str("securitySchemes")] = definition_body["securityDefinitions"]
-                definition_body[Py27Str("components")] = components
+                components["securitySchemes"] = definition_body["securityDefinitions"]
+                definition_body["components"] = components
                 del definition_body["securityDefinitions"]
             if definition_body.get("definitions"):
-                LOG.debug("definitions -----------------")
                 components = definition_body.get("components", {})
-                components[Py27Str("schemas")] = definition_body["definitions"]
-                definition_body[Py27Str("components")] = components
+                components["schemas"] = definition_body["definitions"]
+                definition_body["components"] = components
                 del definition_body["definitions"]
             # removes `consumes` and `produces` options for CORS in openapi3 and
             # adds `schema` for the headers in responses for openapi3
@@ -976,7 +968,7 @@ class ApiGenerator(object):
                                     headers = definition_body["paths"][path]["options"][field]["200"]["headers"]
                                     for header in headers.keys():
                                         header_value = {
-                                            Py27Str("schema"): definition_body["paths"][path]["options"][field]["200"][
+                                            "schema": definition_body["paths"][path]["options"][field]["200"][
                                                 "headers"
                                             ][header]
                                         }
@@ -984,7 +976,6 @@ class ApiGenerator(object):
                                             header
                                         ] = header_value
 
-        LOG.debug("after %s", json.dumps(definition_body))
         return definition_body
 
     def _get_authorizers(self, authorizers_config, default_authorizer=None):

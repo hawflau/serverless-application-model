@@ -1,16 +1,12 @@
 ﻿import copy
 import json
 import re
-import logging
 from six import string_types
 
 from samtranslator.model.intrinsics import ref
 from samtranslator.model.intrinsics import make_conditional, fnSub
 from samtranslator.model.exceptions import InvalidDocumentException, InvalidTemplateException
-from samtranslator.utils.py27dict import Py27Str  
 
-
-LOG = logging.getLogger(__name__)
 
 class SwaggerEditor(object):
     """
@@ -20,27 +16,19 @@ class SwaggerEditor(object):
     empty skeleton.
     """
 
-    _OPTIONS_METHOD = Py27Str("options")
-    _X_APIGW_INTEGRATION = Py27Str("x-amazon-apigateway-integration")
-    _X_APIGW_BINARY_MEDIA_TYPES = Py27Str("x-amazon-apigateway-binary-media-types")
-    _CONDITIONAL_IF = Py27Str("Fn::If")
-    _X_APIGW_GATEWAY_RESPONSES = Py27Str("x-amazon-apigateway-gateway-responses")
-    _X_APIGW_POLICY = Py27Str("x-amazon-apigateway-policy")
-    _X_ANY_METHOD = Py27Str("x-amazon-apigateway-any-method")
-    _CACHE_KEY_PARAMETERS = Py27Str("cacheKeyParameters")
+    _OPTIONS_METHOD = "options"
+    _X_APIGW_INTEGRATION = "x-amazon-apigateway-integration"
+    _X_APIGW_BINARY_MEDIA_TYPES = "x-amazon-apigateway-binary-media-types"
+    _CONDITIONAL_IF = "Fn::If"
+    _X_APIGW_GATEWAY_RESPONSES = "x-amazon-apigateway-gateway-responses"
+    _X_APIGW_POLICY = "x-amazon-apigateway-policy"
+    _X_ANY_METHOD = "x-amazon-apigateway-any-method"
+    _CACHE_KEY_PARAMETERS = "cacheKeyParameters"
     # https://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html
-    _ALL_HTTP_METHODS = [
-        Py27Str("OPTIONS"),
-        Py27Str("GET"),
-        Py27Str("HEAD"),
-        Py27Str("POST"),
-        Py27Str("PUT"),
-        Py27Str("DELETE"),
-        Py27Str("PATCH")
-    ]
-    _POLICY_TYPE_IAM = Py27Str("Iam")
-    _POLICY_TYPE_IP = Py27Str("Ip")
-    _POLICY_TYPE_VPC = Py27Str("Vpc")
+    _ALL_HTTP_METHODS = ["OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE", "PATCH"]
+    _POLICY_TYPE_IAM = "Iam"
+    _POLICY_TYPE_IP = "Ip"
+    _POLICY_TYPE_VPC = "Vpc"
 
     def __init__(self, doc):
         """
@@ -53,8 +41,6 @@ class SwaggerEditor(object):
 
         if not SwaggerEditor.is_valid(doc):
             raise ValueError("Invalid Swagger document")
-
-        LOG.debug("Swagger Editor __init__: %s", doc)
 
         self._doc = copy.deepcopy(doc)
         self.paths = self._doc["paths"]
@@ -190,9 +176,9 @@ class SwaggerEditor(object):
 
         path_dict = self.get_path(path)
         path_dict[method][self._X_APIGW_INTEGRATION] = {
-            Py27Str("type"): Py27Str("aws_proxy"),
-            Py27Str("httpMethod"): Py27Str("POST"),
-            Py27Str("uri"): integration_uri,
+            "type": "aws_proxy",
+            "httpMethod": "POST",
+            "uri": integration_uri,
         }
 
         method_auth_config = method_auth_config or {}
@@ -204,18 +190,18 @@ class SwaggerEditor(object):
         ):
             method_invoke_role = method_auth_config.get("InvokeRole")
             if not method_invoke_role and "InvokeRole" in method_auth_config:
-                method_invoke_role = Py27Str("NONE")
+                method_invoke_role = "NONE"
             api_invoke_role = api_auth_config.get("InvokeRole")
             if not api_invoke_role and "InvokeRole" in api_auth_config:
-                api_invoke_role = Py27Str("NONE")
+                api_invoke_role = "NONE"
             credentials = self._generate_integration_credentials(
                 method_invoke_role=method_invoke_role, api_invoke_role=api_invoke_role
             )
             if credentials and credentials != "NONE":
-                self.paths[path][method][self._X_APIGW_INTEGRATION][Py27Str("credentials")] = credentials
+                self.paths[path][method][self._X_APIGW_INTEGRATION]["credentials"] = credentials
 
         # If 'responses' key is *not* present, add it with an empty dict as value
-        path_dict[method].setdefault(Py27Str("responses"), {})
+        path_dict[method].setdefault("responses", {})
 
         # If a condition is present, wrap all method contents up into the condition
         if condition:
@@ -255,28 +241,22 @@ class SwaggerEditor(object):
         path_dict = self.get_path(path)
 
         # Responses
-        integration_responses = {
-            Py27Str("200"): {Py27Str("statusCode"): Py27Str("200")}, 
-            Py27Str("400"): {Py27Str("statusCode"): Py27Str("400")}
-        }
-        default_method_responses = {
-            Py27Str("200"): {Py27Str("description"): Py27Str("OK")}, 
-            Py27Str("400"): {Py27Str("description"): Py27Str("Bad Request")}
-        }
+        integration_responses = {"200": {"statusCode": "200"}, "400": {"statusCode": "400"}}
+        default_method_responses = {"200": {"description": "OK"}, "400": {"description": "Bad Request"}}
 
         path_dict[method][self._X_APIGW_INTEGRATION] = {
-            Py27Str("type"): Py27Str("aws"),
-            Py27Str("httpMethod"): Py27Str("POST"),
-            Py27Str("uri"): integration_uri,
-            Py27Str("responses"): integration_responses,
-            Py27Str("credentials"): credentials,
+            "type": "aws",
+            "httpMethod": "POST",
+            "uri": integration_uri,
+            "responses": integration_responses,
+            "credentials": credentials,
         }
 
         # If 'responses' key is *not* present, add it with an empty dict as value
-        path_dict[method].setdefault(Py27Str("responses"), default_method_responses)
+        path_dict[method].setdefault("responses", default_method_responses)
 
         if request_templates:
-            path_dict[method][self._X_APIGW_INTEGRATION].update({Py27Str("requestTemplates"): request_templates})
+            path_dict[method][self._X_APIGW_INTEGRATION].update({"requestTemplates": request_templates})
 
         # If a condition is present, wrap all method contents up into the condition
         if condition:
@@ -382,12 +362,12 @@ class SwaggerEditor(object):
         :return dict: Dictionary containing Options method configuration for CORS
         """
 
-        ALLOW_ORIGIN = Py27Str("Access-Control-Allow-Origin")
-        ALLOW_HEADERS = Py27Str("Access-Control-Allow-Headers")
-        ALLOW_METHODS = Py27Str("Access-Control-Allow-Methods")
-        MAX_AGE = Py27Str("Access-Control-Max-Age")
-        ALLOW_CREDENTIALS = Py27Str("Access-Control-Allow-Credentials")
-        HEADER_RESPONSE = lambda x: Py27Str("method.response.header.") + x
+        ALLOW_ORIGIN = "Access-Control-Allow-Origin"
+        ALLOW_HEADERS = "Access-Control-Allow-Headers"
+        ALLOW_METHODS = "Access-Control-Allow-Methods"
+        MAX_AGE = "Access-Control-Max-Age"
+        ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials"
+        HEADER_RESPONSE = lambda x: "method.response.header." + x
 
         response_parameters = {
             # AllowedOrigin is always required
@@ -396,7 +376,7 @@ class SwaggerEditor(object):
 
         response_headers = {
             # Allow Origin is always required
-            ALLOW_ORIGIN: {Py27Str("type"): Py27Str("string")}
+            ALLOW_ORIGIN: {"type": "string"}
         }
 
         # Optional values. Skip the header if value is empty
@@ -407,41 +387,36 @@ class SwaggerEditor(object):
         #
         if allowed_headers:
             response_parameters[HEADER_RESPONSE(ALLOW_HEADERS)] = allowed_headers
-            response_headers[ALLOW_HEADERS] = {Py27Str("type"): Py27Str("string")}
+            response_headers[ALLOW_HEADERS] = {"type": "string"}
         if allowed_methods:
             response_parameters[HEADER_RESPONSE(ALLOW_METHODS)] = allowed_methods
-            response_headers[ALLOW_METHODS] = {Py27Str("type"): Py27Str("string")}
+            response_headers[ALLOW_METHODS] = {"type": "string"}
         if max_age is not None:
             # MaxAge can be set to 0, which is a valid value. So explicitly check against None
             response_parameters[HEADER_RESPONSE(MAX_AGE)] = max_age
-            response_headers[MAX_AGE] = {Py27Str("type"): Py27Str("integer")}
+            response_headers[MAX_AGE] = {"type": "integer"}
         if allow_credentials is True:
             # Allow-Credentials only has a valid value of true, it should be omitted otherwise.
             # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials
-            response_parameters[HEADER_RESPONSE(ALLOW_CREDENTIALS)] = Py27Str("'true'")
-            response_headers[ALLOW_CREDENTIALS] = {Py27Str("type"): Py27Str("string")}
+            response_parameters[HEADER_RESPONSE(ALLOW_CREDENTIALS)] = "'true'"
+            response_headers[ALLOW_CREDENTIALS] = {"type": "string"}
 
         return {
-            Py27Str("summary"): Py27Str("CORS support"),
-            Py27Str("consumes"): [Py27Str("application/json")],
-            Py27Str("produces"): [Py27Str("application/json")],
+            "summary": "CORS support",
+            "consumes": ["application/json"],
+            "produces": ["application/json"],
             self._X_APIGW_INTEGRATION: {
-                Py27Str("type"): Py27Str("mock"),
-                Py27Str("requestTemplates"): {Py27Str("application/json"): Py27Str('{\n  "statusCode" : 200\n}\n')},
-                Py27Str("responses"): {
-                    Py27Str("default"): {
-                        Py27Str("statusCode"): Py27Str("200"),
-                        Py27Str("responseParameters"): response_parameters,
-                        Py27Str("responseTemplates"): {Py27Str("application/json"): Py27Str("{}\n")},
+                "type": "mock",
+                "requestTemplates": {"application/json": '{\n  "statusCode" : 200\n}\n'},
+                "responses": {
+                    "default": {
+                        "statusCode": "200",
+                        "responseParameters": response_parameters,
+                        "responseTemplates": {"application/json": "{}\n"},
                     }
                 },
             },
-            Py27Str("responses"): {
-                Py27Str("200"): {
-                    Py27Str("description"): Py27Str("Default response for CORS method"),
-                    Py27Str("headers"): response_headers
-                }
-            },
+            "responses": {"200": {"description": "Default response for CORS method", "headers": response_headers}},
         }
 
     def _make_cors_allowed_methods_for_path(self, path):
@@ -466,7 +441,7 @@ class SwaggerEditor(object):
             allow_methods = self._ALL_HTTP_METHODS
         else:
             allow_methods = methods
-            allow_methods.append(Py27Str("options"))  # Always add Options to the CORS methods response
+            allow_methods.append("options")  # Always add Options to the CORS methods response
 
         # Clean up the result:
         #
@@ -480,7 +455,6 @@ class SwaggerEditor(object):
         allow_methods.sort()
 
         # Allow-Methods is comma separated string
-        # FIXME: not sure if Py27Str is needed
         return ",".join(allow_methods)
 
     def add_authorizers_security_definitions(self, authorizers):
@@ -501,11 +475,11 @@ class SwaggerEditor(object):
         """
 
         aws_iam_security_definition = {
-            Py27Str("AWS_IAM"): {
-                Py27Str("x-amazon-apigateway-authtype"): Py27Str("awsSigv4"),
-                Py27Str("type"): Py27Str("apiKey"),
-                Py27Str("name"): Py27Str("Authorization"),
-                Py27Str("in"): Py27Str("header"),
+            "AWS_IAM": {
+                "x-amazon-apigateway-authtype": "awsSigv4",
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
             }
         }
 
@@ -522,13 +496,7 @@ class SwaggerEditor(object):
         Note: this method is idempotent
         """
 
-        api_key_security_definition = {
-            Py27Str("api_key"): {
-                Py27Str("type"): Py27Str("apiKey"),
-                Py27Str("name"): Py27Str("x-api-key"),
-                Py27Str("in"): Py27Str("header")
-            }
-        }
+        api_key_security_definition = {"api_key": {"type": "apiKey", "name": "x-api-key", "in": "header"}}
 
         self.security_definitions = self.security_definitions or {}
 
@@ -577,7 +545,7 @@ class SwaggerEditor(object):
                     if not self.method_definition_has_integration(method_definition):
                         continue
                     existing_security = method_definition.get("security", [])
-                    authorizer_list = [Py27Str("AWS_IAM")]
+                    authorizer_list = ["AWS_IAM"]
                     if authorizers:
                         authorizer_list.extend(authorizers.keys())
                     authorizer_names = set(authorizer_list)
@@ -635,7 +603,7 @@ class SwaggerEditor(object):
                     security = existing_non_authorizer_security + authorizer_security
 
                     if security:
-                        method_definition[Py27Str("security")] = security
+                        method_definition["security"] = security
 
                         # The first element of the method_definition['security'] should be AWS_IAM
                         # because authorizer_list = ['AWS_IAM'] is hardcoded above
@@ -700,13 +668,13 @@ class SwaggerEditor(object):
                 # No existing ApiKey setting found or it's already set to the default
                 else:
                     security_dict = {}
-                    security_dict[Py27Str("api_key")] = []
+                    security_dict["api_key"] = []
                     apikey_security = [security_dict]
 
                 security = existing_non_apikey_security + apikey_security
 
                 if security != existing_security:
-                    method_definition[Py27Str("security")] = security
+                    method_definition["security"] = security
 
     def add_auth_to_method(self, path, method_name, auth, api):
         """
@@ -767,7 +735,7 @@ class SwaggerEditor(object):
                     security_dict[authorizer_name] = method_auth_scopes
 
             if security:
-                method_definition[Py27Str("security")] = security
+                method_definition["security"] = security
 
                 # The first element of the method_definition['security'] should be AWS_IAM
                 # because authorizer_list = ['AWS_IAM'] is hardcoded above
@@ -796,7 +764,7 @@ class SwaggerEditor(object):
             if apikey_required:
                 # We want to enable apikey required security
                 security_dict = {}
-                security_dict[Py27Str("api_key")] = []
+                security_dict["api_key"] = []
                 apikey_security = [security_dict]
                 self.add_apikey_security_definition()
             else:
@@ -804,14 +772,14 @@ class SwaggerEditor(object):
                 # so let's add a marker 'api_key_false' so that we don't incorrectly override
                 # with the api default
                 security_dict = {}
-                security_dict[Py27Str("api_key_false")] = []
+                security_dict["api_key_false"] = []
                 apikey_security = [security_dict]
 
             # This assumes there are no autorizers already configured in the existing security block
             security = existing_security + apikey_security
 
             if security != existing_security:
-                method_definition[Py27Str("security")] = security
+                method_definition["security"] = security
 
     def add_request_model_to_method(self, path, method_name, request_model):
         """
@@ -837,31 +805,27 @@ class SwaggerEditor(object):
                 existing_parameters = method_definition.get("parameters", [])
 
                 parameter = {
-                    Py27Str("in"): Py27Str("body"),
-                    Py27Str("name"): model_name,
-                    Py27Str("schema"): {Py27Str("$ref"): Py27Str("#/definitions/{}").format(model_name)},
+                    "in": "body",
+                    "name": model_name,
+                    "schema": {"$ref": "#/definitions/{}".format(model_name)},
                 }
 
                 if model_required is not None:
-                    parameter[Py27Str("required")] = model_required
+                    parameter["required"] = model_required
 
                 existing_parameters.append(parameter)
 
-                method_definition[Py27Str("parameters")] = existing_parameters
+                method_definition["parameters"] = existing_parameters
 
             elif self._doc.get("openapi") and SwaggerEditor.safe_compare_regex_with_string(
                 SwaggerEditor.get_openapi_version_3_regex(), self._doc["openapi"]
             ):
-                method_definition[Py27Str("requestBody")] = {
-                    Py27Str("content"): {
-                        Py27Str("application/json"): {
-                            Py27Str("schema"): {Py27Str("$ref"): Py27Str("#/components/schemas/{}").format(model_name)}
-                        }
-                    }
+                method_definition["requestBody"] = {
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/{}".format(model_name)}}}
                 }
 
                 if model_required is not None:
-                    method_definition[Py27Str("requestBody")][Py27Str("required")] = model_required
+                    method_definition["requestBody"]["required"] = model_required
 
     def add_gateway_responses(self, gateway_responses):
         """
@@ -1185,14 +1149,9 @@ class SwaggerEditor(object):
                 location, name = location_name.split(".", 1)
 
                 if location == "querystring":
-                    location = Py27Str("query")
+                    location = "query"
 
-                parameter = {
-                    Py27Str("in"): location,
-                    Py27Str("name"): name,
-                    Py27Str("required"): request_parameter["Required"],
-                    Py27Str("type"): Py27Str("string")
-                }
+                parameter = {"in": location, "name": name, "required": request_parameter["Required"], "type": "string"}
 
                 existing_parameters.append(parameter)
 
@@ -1203,7 +1162,7 @@ class SwaggerEditor(object):
                     cache_parameters.append(parameter_name)
                     integration[self._CACHE_KEY_PARAMETERS] = cache_parameters
 
-            method_definition[Py27Str("parameters")] = existing_parameters
+            method_definition["parameters"] = existing_parameters
 
     @property
     def swagger(self):
@@ -1214,17 +1173,15 @@ class SwaggerEditor(object):
         """
 
         # Make sure any changes to the paths are reflected back in output
-        self._doc[Py27Str("paths")] = self.paths
+        self._doc["paths"] = self.paths
 
         if self.security_definitions:
-            self._doc[Py27Str("securityDefinitions")] = self.security_definitions
+            self._doc["securityDefinitions"] = self.security_definitions
         if self.gateway_responses:
             self._doc[self._X_APIGW_GATEWAY_RESPONSES] = self.gateway_responses
         if self.definitions:
-            self._doc[Py27Str("definitions")] = self.definitions
+            self._doc["definitions"] = self.definitions
 
-        LOG.debug("editor.swagger:           %s", self._doc)
-        LOG.debug("editor.swagger(deepcopy): %s", copy.deepcopy(self._doc))
         return copy.deepcopy(self._doc)
 
     @staticmethod
@@ -1252,13 +1209,7 @@ class SwaggerEditor(object):
 
         :return dict: Dictionary of a skeleton swagger document
         """
-        return {
-            Py27Str("swagger"): Py27Str("2.0"),
-            Py27Str("info"): {
-                Py27Str("version"): Py27Str("1.0"),
-                Py27Str("title"): ref(Py27Str("AWS::StackName"))
-            }, 
-            Py27Str("paths"): {}}
+        return {"swagger": "2.0", "info": {"version": "1.0", "title": ref("AWS::StackName")}, "paths": {}}
 
     @staticmethod
     def _get_authorization_scopes(authorizers, default_authorizer):

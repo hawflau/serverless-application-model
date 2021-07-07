@@ -1,7 +1,6 @@
 ﻿""" SAM macro definitions """
 from six import string_types
 import copy
-import logging
 
 import samtranslator.model.eventsources
 import samtranslator.model.eventsources.pull
@@ -51,8 +50,6 @@ from samtranslator.model.stepfunctions import StateMachineGenerator
 from samtranslator.model.role_utils import construct_role_for_resource
 from samtranslator.model.xray_utils import get_xray_managed_policy_name
 
-
-LOG = logging.getLogger(__name__)
 
 class SamFunction(SamResourceMacro):
     """SAM function macro."""
@@ -867,7 +864,6 @@ class SamApi(SamResourceMacro):
         redeploy_restapi_parameters = kwargs.get("redeploy_restapi_parameters")
         shared_api_usage_plan = kwargs.get("shared_api_usage_plan")
         template_conditions = kwargs.get("conditions")
-        LOG.debug("%s - to_cloudformation: %s", self.logical_id, self.DefinitionBody)
 
         api_generator = ApiGenerator(
             self.logical_id,
