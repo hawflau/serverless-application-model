@@ -33,6 +33,8 @@ class Py27UniStr(str):
         return Py27UniStr(super(Py27UniStr, self).lower())
 
 class Py27Keys(object):
+    DUMMY = ['dummy'] # marker for deleted keys
+
     """
     A subclass of Keys from py27hash
     Difference from Keys - In Keys, hashes are only calculated and cached when keys() method is
@@ -47,7 +49,8 @@ class Py27Keys(object):
         self.debug = True
         self.keyorder = dict()
         # current size of the keys
-        self.size = 0
+        self.size = 0  # ma_used in dictobject.c
+        self.fill = 0  # ma_fill in dictobject.c
         # Python 2 dict default size
         self.mask = Keys.MINSIZE - 1
         self.printstate('__init__')
@@ -55,75 +58,99 @@ class Py27Keys(object):
     def printstate(self, k):
         if not self.debug:
             return
-        print('py27k {k} => mask {mask} size {size} keyorder {keyorder}'.format(
+        print('py27k {k} => mask {mask} size {size} fill {fill} keyorder {keyorder}'.format(
             k=k,
             mask=self.mask,
             size=self.size,
+            fill=self.fill,
             keyorder=self.keyorder
         ))
 
     # get insert location for k
     def _get_key_idx(self, k):
+        freeslot = None
         # C API uses unsigned values
         h = ctypes.c_size_t(Hash.hash(k)).value
         i = h & self.mask
 
+        if i not in self.keyorder or self.keyorder[i] == k: # empty slot or keys match
+            return i
+
+        if i in self.keyorder and self.keyorder[i] is self.DUMMY: # dummy slot
+            freeslot = i
+
         walker = i
         perturb = h
         while i in self.keyorder and self.keyorder[i] != k:
+            print(f'i={i} freeslot={freeslot}')
             walker = (walker << 2) + walker + perturb + 1
             i = walker & self.mask
+
+            print(f'i={i} freeslot={freeslot}')
+            if i not in self.keyorder:
+                return i if freeslot is None else freeslot 
+            if self.keyorder[i] == k:
+                return i
+            if freeslot is None and self.keyorder[i] is self.DUMMY:
+                freeslot = i
             perturb >>= Keys.PERTURB_SHIFT
             # todo some sort of check for infinite loop
         return i
 
-    def _setMask(self, request=None):
+    def _resize(self, request):
         """
         Key based on the total size of this dict. Matches ma_mask in Python 2.7's dict.
         Method: static int dictresize(PyDictObject *mp, Py_ssize_t minused)
         """
 
-        if not request:
-            # Python 2 dict increases by a factor of 4 for small dicts, 2 for larger ones
-            request = self.size * (2 if self.size > 50000 else 4)
-
         newsize = Keys.MINSIZE
         while newsize <= request:
             newsize <<= 1
 
-        self.mask = newsize - 1        
+        self.mask = newsize - 1
+
+        # Reset key list to simulate the dict resize + copy operation
+        oldkeyorder = copy.copy(self.keyorder)
+        self.keyorder = dict()
+        self.fill = self.size = 0
+        # now reinsert all the keys using the original order
+        for idx in sorted(oldkeyorder.keys()):
+            # todo recursion danger, we're counting on mask being big enough so that add does not invoke resize
+            if oldkeyorder[idx] is not self.DUMMY:
+                self.add(oldkeyorder[idx])
 
     def remove(self, key):
         i = self._get_key_idx(key)
         if i in self.keyorder:
-            del self.keyorder[i]
+            self.keyorder[i] = self.DUMMY
             self.size -= 1
         self.printstate('remove({key})'.format(key=key))
 
     def add(self, key):
+        start_size = self.size
         i = self._get_key_idx(key)
         if i not in self.keyorder:
-            self.keyorder[i] = key
+            # we're not replacing a DUMMY entry, so increment fill
             self.size += 1
+            self.fill += 1
+        else:
+            if self.keyorder[i] is self.DUMMY:
+                self.size += 1
+
+        self.keyorder[i] = key
 
         # Resize dict if 2/3 capacity
         # todo before or after we insert into keyorder???
-        if self.size * 3 >= ((self.mask + 1) * 2):
+        if self.size > start_size and self.fill * 3 >= ((self.mask + 1) * 2):
             self.printstate('upsize')
-            # Reset key list to simulate the dict resize + copy operation
-            oldkeyorder = copy.copy(self.keyorder)
-            self._setMask()
-            self.keyorder = dict()
-            # now reinsert all the keys using the original order
-            for idx in sorted(oldkeyorder.keys()):
-                # todo recursion danger, we're counting on mask being big enough to not get into this if again
-                self.add(oldkeyorder[idx]) 
+            # Python 2 dict increases by a factor of 4 for small dicts, 2 for larger ones
+            self._resize(self.size * (2 if self.size > 50000 else 4))
 
         self.printstate('add({key})'.format(key=key))
 
     def keys(self):
         self.printstate('keys()')
-        return [self.keyorder[key] for key in sorted(self.keyorder.keys())]
+        return [self.keyorder[key] for key in sorted(self.keyorder.keys()) if self.keyorder[key] is not self.DUMMY]
     
     def __setstate__(self, state):
         """
@@ -157,10 +184,12 @@ class Py27Keys(object):
         Args:
             d: input dict
         """
+        if len(d) == 0 or self is d:
+            return # nothing to do
 
         # PyDict_Merge initial merge size is double the size of the current + incoming dict
-        if ((self.size + len(d)) * 3) >= ((self.mask + 1) * 2):
-            self._setMask((self.size + len(d)) * 2)
+        if ((self.fill + len(d)) * 3) >= ((self.mask + 1) * 2):
+            self._resize((self.size + len(d)) * 2)
 
         # Copy actual keys
         for k in d:
