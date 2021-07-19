@@ -36,13 +36,11 @@ class Py27Keys(object):
     DUMMY = ['dummy'] # marker for deleted keys
 
     """
-    A subclass of Keys from py27hash
-    Difference from Keys - In Keys, hashes are only calculated and cached when keys() method is
-    invoked. This is fine if the dictionary is not manipulated at all between creation and keys()
-    is invoked for the first time. However, in Swagger Editor, the swagger body is manipulated
-    (adding/removing keys & values) without calling keys(). 
-    Therefore, when adding
-    The main change is to keep a cache of calculated hash id for existing keys
+    A class for tracking keys based on based on Python 2.7 order.
+    Based on https://github.com/python/cpython/blob/v2.7.18/Objects/dictobject.c.
+
+    The order of keys in Python 2.7 is path dependent -- the order of inserts and deletes matters
+    in determining the iteration order.
     """
     def __init__(self):
         super(Py27Keys, self).__init__()
@@ -81,7 +79,9 @@ class Py27Keys(object):
 
         walker = i
         perturb = h
-        while i in self.keyorder and self.keyorder[i] != k:
+        maxiter = self.mask # max iteration count = table size
+        while maxiter >= 0:
+            maxiter -= 1
             print(f'i={i} freeslot={freeslot}')
             walker = (walker << 2) + walker + perturb + 1
             i = walker & self.mask
@@ -94,7 +94,7 @@ class Py27Keys(object):
             if freeslot is None and self.keyorder[i] is self.DUMMY:
                 freeslot = i
             perturb >>= Keys.PERTURB_SHIFT
-            # todo some sort of check for infinite loop
+
         return i
 
     def _resize(self, request):
@@ -122,8 +122,10 @@ class Py27Keys(object):
     def remove(self, key):
         i = self._get_key_idx(key)
         if i in self.keyorder:
-            self.keyorder[i] = self.DUMMY
-            self.size -= 1
+            if self.keyorder[i] is not self.DUMMY:
+                self.keyorder[i] = self.DUMMY
+                self.size -= 1
+
         self.printstate('remove({key})'.format(key=key))
 
     def add(self, key):
@@ -140,7 +142,6 @@ class Py27Keys(object):
         self.keyorder[i] = key
 
         # Resize dict if 2/3 capacity
-        # todo before or after we insert into keyorder???
         if self.size > start_size and self.fill * 3 >= ((self.mask + 1) * 2):
             self.printstate('upsize')
             # Python 2 dict increases by a factor of 4 for small dicts, 2 for larger ones
